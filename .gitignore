@@ -1,0 +1,11 @@
+# caches and per-project outputs (projects live outside this repo, e.g. ~/shorts/<slug>)
+__pycache__/
+*.pyc
+node_modules/
+kit/vendor/
+frames/
+stills/
+out/
+work/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+* text=auto
+# shell/python/node scripts must keep LF so they run in bash (Git Bash on Windows too)
+*.sh text eol=lf
+*.py text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.gif binary
+*.jpg binary
+*.png binary
