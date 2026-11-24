@@ -4,6 +4,10 @@ Dipakai hanya kalau pengguna meminta gaya ini. Buat project dengan `bash <skill>
 (butuh internet sekali untuk three.js r160 dan `toon.ts`). Tahap 1-3 dan 4.1, 4.2, 4.7, 4.8 di SKILL.md tetap berlaku; bagian di bawah ini
 menggantikan 4.3-4.6 untuk gaya card. Contoh jadi: `kit/example/soldier/stills.jpg`.
 
+## Subtitle dan tag ekspresi di gaya card
+- Engine card (WebGL) tidak membakar subtitle ke frame. `timing.py` tetap menulis `out/subs.srt`; kirim file itu bersama MP4 untuk diupload sebagai caption di platform.
+- `timing.py` tetap menulis `work/cues.json` dari tag naskah. Engine card tidak membacanya otomatis: salin frame dan ekspresinya ke `actorsAt` (mis. `kaget` → `expr: 'surprised'`, `ngotot` → `'stubborn'`, `tidur` → `'snore'`).
+
 ## Dunia (`web/main.js`)
 Pertahankan bagian engine: materials, ink/normal-depth contract, helpers (`add`/`tbox`), sky, lights, cards, render targets & post, per-frame state (`applyLight`, `drawActors`, `swapForNd`), dan `renderFrame`. Ganti dunia contoh di antara `// ---------- world ----------` dan `// ---------- cards ----------` (termasuk `helmet prop (3D)` yang khusus cerita contoh), plus bagian cerita di `worldState()` dan `web/story.js`.
 - Bangun dari bentuk primitif dengan tekstur canvas bergaya lukisan dari `paint.js` (planks, beam, rotten, stone, mossy, grass, dirt, plaster, roof, marble, banner, teks ukir). Painter baru: warna datar dengan sambungan gelap.

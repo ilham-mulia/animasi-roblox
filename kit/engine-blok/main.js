@@ -2,10 +2,13 @@
 // window.renderFrame(f) draws frame f onto #c (1080x1920). render.mjs calls it once per frame.
 // index.html#sheet  -> character test sheet of every CAST preset (render with HASH=#sheet).
 // index.html#f=120  -> draws frame 120 on load (quick still in any browser, no Playwright needed).
+// Subtitles come from web/subs.js (written by timing.py); story.js may export SUB_STYLE to restyle or turn them off.
 import { createRenderer } from './render.js';
 import * as WORLD from './world.js';
 import { CAST, human, EXPRESSIONS } from './blok.js';
-import { TOTAL, camAt, dofAt, sceneAt, fxAt } from './story.js';
+import * as STORY from './story.js';
+import { SUBS } from './subs.js';
+const { TOTAL, camAt, dofAt, sceneAt, fxAt } = STORY;
 
 const cv = document.getElementById('c');
 const R = createRenderer(cv);
@@ -31,6 +34,7 @@ function renderFrame(f) {
   for (const z of fx.zzz || []) R.zzz(z.p, f, z.a ?? 1);
   if (fx.draw) fx.draw(R, f); // optional custom 2D overlay (diegetic signs, sparkles)
   R.grade({ flash: fx.flash || 0, vignette: fx.vignette ?? 0.22 });
+  R.subtitles(SUBS, f / 30, STORY.SUB_STYLE || {});
 }
 
 /** Character test sheet: every CAST preset in a few expressions, on a plain backdrop with names. */

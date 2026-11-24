@@ -263,6 +263,25 @@ export const walkPose = (phase, amp = 0.55) => {
 };
 /** Wave with the right hand; t in seconds. */
 export const wavePose = (t, side = 'R') => ({ ['arm' + side]: { rz: (side === 'R' ? 1 : -1) * (2.6 + 0.35 * Math.sin(t * 9)) } });
+/**
+ * Expression from the script tags (CUES in web/cues.js, written by timing.py).
+ * o: { who: name used in the tag, lowercase ('kakek', 'pak tani'), main: true if untagged cues ([kaget]) apply to this
+ *      character in this shot, base: expression before the first cue }. Returns { expr, since (frames since the cue) }.
+ */
+export function cueExpr(cues, f, o = {}) {
+  let hit = null;
+  for (const c of cues || []) {
+    if (c.f > f) break;
+    if (!c.expr) continue;
+    if (c.who ? c.who === o.who : o.main) hit = c;
+  }
+  return hit ? { expr: hit.expr, since: f - hit.f } : { expr: o.base || 'neutral', since: Infinity };
+}
+/** cueExpr as a pose fragment: the expression plus a small pop (hop + head jolt) right when it changes. */
+export function cuePose(cues, f, o = {}) {
+  const { expr, since } = cueExpr(cues, f, o), pop = since < 9 ? Math.sin((since / 9) * Math.PI) : 0;
+  return { expr, bob: 0.12 * pop, head: { rx: -0.08 * pop } };
+}
 /** Later poses override earlier ones; bob and head angles add up. */
 export function mergePose(...ps) {
   const out = { armL: {}, armR: {}, head: {}, bob: 0 };

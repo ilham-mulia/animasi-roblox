@@ -173,6 +173,53 @@ export function createRenderer(canvas) {
     }
     g.restore();
   };
+  /**
+   * Burned-in subtitles, shorts style: chunk of a few words, the word being spoken pops in the highlight colour.
+   * subs: SUBS from web/subs.js (timing.py). t: seconds. st: SUB_STYLE from story.js
+   * { on, y (0..1 of height, centre of the block), size, maxWidth, x, upper, color, highlight, outline, font }
+   * Defaults (y 0.75) keep the text inside the safe zone of TikTok/Reels/Shorts (above the bottom 20 %, clear of the right-side buttons).
+   */
+  R.subtitles = (subs, t, st = {}) => {
+    if (!subs || !subs.length || st.on === false) return;
+    const c = subs.find((x) => t >= x.s && t < x.e); if (!c) return;
+    const g = main, size = st.size || 72, lh = size * 1.22, maxW = st.maxWidth || 860, cx = st.x ?? W * 0.48, cy = (st.y ?? 0.75) * H;
+    g.save();
+    g.font = `900 ${size}px ${st.font || '"Arial Black", "Segoe UI Black", "Segoe UI", Arial, sans-serif'}`;
+    g.textBaseline = 'middle'; g.textAlign = 'left'; g.lineJoin = 'round';
+    const words = c.words.map((w) => { let txt = w.w.replace(/[,.;:]+$/, ''); if (st.upper) txt = txt.toUpperCase(); return { ...w, txt, wd: g.measureText(txt).width }; });
+    const space = g.measureText(' ').width * 1.15;
+    const width = (ws) => ws.reduce((a, w, k) => a + w.wd + (k ? space : 0), 0);
+    let lines = [{ ws: words, w: width(words) }];
+    if (lines[0].w > maxW) { // balanced two-line split (falls back to greedy wrap for very long chunks)
+      let best = null;
+      for (let k = 1; k < words.length; k++) { const a = words.slice(0, k), b = words.slice(k), m = Math.max(width(a), width(b)); if (!best || m < best.m) best = { m, a, b }; }
+      if (best && best.m <= maxW) lines = [{ ws: best.a, w: width(best.a) }, { ws: best.b, w: width(best.b) }];
+      else {
+        lines = []; let cur = [];
+        for (const w of words) { if (cur.length && width([...cur, w]) > maxW) { lines.push({ ws: cur, w: width(cur) }); cur = [w]; } else cur.push(w); }
+        if (cur.length) lines.push({ ws: cur, w: width(cur) });
+      }
+    }
+    let on = -1; words.forEach((w, i) => { if (t >= w.s - 0.03) on = i; });
+    const appear = clamp((t - c.s) / 0.12, 0, 1);
+    g.globalAlpha = 0.3 + 0.7 * appear;
+    let i = 0;
+    lines.forEach((ln, li) => {
+      let x = cx - ln.w / 2;
+      const y = cy + (li - (lines.length - 1) / 2) * lh + (1 - appear) * 14;
+      for (const w of ln.ws) {
+        const hot = i === on, pop = hot ? 1 + 0.1 * Math.max(0, 1 - (t - w.s) / 0.14) : 1;
+        g.save(); g.translate(x + w.wd / 2, y); g.scale(pop, pop);
+        g.lineWidth = size * 0.28; g.strokeStyle = st.outline || INK;
+        g.strokeText(w.txt, -w.wd / 2 + size * 0.04, size * 0.07);                  // offset outline = small drop shadow
+        g.strokeText(w.txt, -w.wd / 2, 0);
+        g.fillStyle = hot ? st.highlight || '#ffd93b' : st.color || '#ffffff'; g.fillText(w.txt, -w.wd / 2, 0);
+        g.restore();
+        x += w.wd + space; i++;
+      }
+    });
+    g.restore();
+  };
   R.grade = ({ flash = 0, vignette = 0.22 } = {}) => {
     const g = main;
     if (vignette > 0) {

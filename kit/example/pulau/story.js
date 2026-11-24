@@ -1,9 +1,18 @@
-// Example story for the blok style: "Pulau" — 8 s (240 frames) without a voiceover, to show every engine feature.
+// Example story for the blok style: "Pulau" — 8 s (240 frames), to show every engine feature.
+// Narration (naskah.txt, with expression tags):
+//   [senang] Di pulau kecil ini, semua orang santai. Sampai suatu hari, [kaget] terdengar teriakan dari dermaga.
+//   Bahkan Kakek pun [Kakek: kaget] terbangun!
+// cues.js / subs.js here are a demo timing of that script (no recording); timing.py writes the real ones from voice.mp3.
 // Copy to web/story.js and rewrite SHOTS, cameras, scene and actor timing for the new script (timed from work/phrases.json).
-// Exports used by main.js: TOTAL, camAt(f), dofAt(f), sceneAt(f), fxAt(f). All pure functions of the frame.
-import { M, ramp, lerp, lerp3, camFromKeys, walk } from './motion.js';
-import { CAST, human, alive, walkPose, wavePose, mergePose } from './blok.js';
+// Exports used by main.js: TOTAL, camAt(f), dofAt(f), sceneAt(f), fxAt(f), optional SUB_STYLE. All pure functions of the frame.
+import { M, ramp, camFromKeys, walk } from './motion.js';
+import { CAST, human, alive, walkPose, wavePose, mergePose, cueExpr, cuePose } from './blok.js';
 import { stiltHouse, saung, palm, bush, rock, pier, boat } from './world.js';
+import { CUES } from './cues.js';
+
+/** Subtitles (web/subs.js): { on, y, size, maxWidth, upper, color, highlight }. Defaults are shorts-safe. */
+export const SUB_STYLE = { y: 0.75 };
+const WAKE = (CUES.find((c) => c.who === 'kakek') || { f: 222 }).f; // grandpa wakes on his [Kakek: kaget] tag
 
 export const FPS = 30, TOTAL = 240;
 export const SHOTS = [
@@ -50,7 +59,7 @@ const CAMS = {
     { f: 239, pos: [4.4, 3.9, 8.1], look: [3.4, 3.7, 3.0], fov: 30, roll: 2.5 },
   ],
 };
-export const camAt = (f) => camFromKeys(CAMS[shotAt(f).id], f, { kicks: [{ f: 222, a: 0.05 }] });
+export const camAt = (f) => camFromKeys(CAMS[shotAt(f).id], f, { kicks: [{ f: WAKE, a: 0.05 }] });
 
 // ---------- lens: blur the far layer on close-ups (px), focus = distance along the view axis ----------
 const along = (c, p) => { const d = [c.look[0] - c.pos[0], c.look[1] - c.pos[1], c.look[2] - c.pos[2]], l = Math.hypot(...d); return ((p[0] - c.pos[0]) * d[0] + (p[1] - c.pos[1]) * d[1] + (p[2] - c.pos[2]) * d[2]) / l; };
@@ -66,15 +75,16 @@ export const dofAt = (f) => {
 const actor = (spec, pos, yaw, pose) => ({ parts: human(spec, pose), pos, yaw, k: spec.k || 1 });
 function actorsAt(f) {
   const t = f / 30, out = [];
-  // Pak Tani: happy; at f118 turns his head toward the pier (overshoot), surprised from f120 with a small hop
-  const turn = M.back(ramp(f, 116, 126)), hop = f >= 120 ? 0.18 * Math.max(0, Math.sin(Math.min(1, (f - 120) / 8) * Math.PI)) : 0;
-  out.push(actor(CAST.tani, TANI, 0.35, mergePose(alive(f, 2), { head: { ry: 0.7 * turn }, expr: f >= 120 ? 'surprised' : 'happy', bob: hop })));
+  // Pak Tani is the main character, so untagged cues ([senang], [kaget]) drive his face; on "kaget" he also turns to the pier
+  const tc = cueExpr(CUES, f, { who: 'pak tani', main: true, base: 'happy' });
+  const turn = tc.expr === 'surprised' ? M.back(ramp(tc.since, 0, 10)) : 0;
+  out.push(actor(CAST.tani, TANI, 0.35, mergePose(alive(f, 2), cuePose(CUES, f, { who: 'pak tani', main: true, base: 'happy' }), { head: { ry: 0.7 * turn } })));
   // Ibu: chats (talk with lip flap) during the wide, waves at the kid later
   const talk = f < 90 ? { expr: 'talk', open: 0.5 + 0.5 * Math.sin(f * 0.9) } : { expr: 'happy' };
   out.push(actor(CAST.ibu, IBU, 0.35, mergePose(alive(f, 4), talk, f > 170 ? wavePose(t, 'R') : null)));
-  // Kakek: asleep until f222, then jolts awake (anticipation -> overshoot)
-  const wake = f >= 222, jolt = wake ? M.back(ramp(f, 222, 230)) : 0;
-  out.push(actor(CAST.kakek, KAKEK, 0.15, mergePose(alive(f, 6), wake ? { expr: 'surprised', head: { rx: -0.12 * jolt }, bob: 0.2 * Math.sin(Math.min(1, (f - 222) / 9) * Math.PI) } : { expr: 'sleep', head: { rx: 0.12 }, blink: 0 })));
+  // Kakek: asleep until his [Kakek: kaget] cue, then jolts awake (overshoot) with the tagged expression
+  const kc = cueExpr(CUES, f, { who: 'kakek', base: 'sleep' }), wake = kc.expr !== 'sleep', jolt = wake ? M.back(ramp(kc.since, 0, 8)) : 0;
+  out.push(actor(CAST.kakek, KAKEK, 0.15, mergePose(alive(f, 6), wake ? { expr: kc.expr, head: { rx: -0.12 * jolt }, bob: 0.2 * Math.sin(Math.min(1, kc.since / 9) * Math.PI) } : { expr: 'sleep', head: { rx: 0.12 }, blink: 0 })));
   // Anak SD: waves on the pier in the wide; in 'dermaga' runs from z 12.8 to 16.4, then waves
   let z = 16.4, pose = mergePose(alive(f, 8), wavePose(t, 'R'));
   if (f >= 150 && f < 186) { const w = walk(f, 150, 3.0, 0.75); z = 12.8 + w.dist; pose = mergePose(alive(f, 8), walkPose(w.phase, 0.7), { expr: 'happy' }); }
@@ -127,6 +137,6 @@ const circle = (x, z, r, n = 14) => Array.from({ length: n }, (_, i) => [x + r *
 // ---------- effects ----------
 export const fxAt = (f) => {
   const cut = (a, s) => (f >= a && f < a + 5 ? s * (1 - (f - a) / 5) : 0);
-  const zz = f < 222 ? 1 : Math.max(0, 1 - (f - 222) / 4);
+  const zz = f < WAKE ? 1 : Math.max(0, 1 - (f - WAKE) / 4);
   return { flash: cut(90, 0.5) + cut(150, 0.35) + cut(205, 0.35), zzz: [{ p: [KAKEK[0] + 0.2, KAKEK[1] + 3.3, KAKEK[2]], a: zz }] };
 };

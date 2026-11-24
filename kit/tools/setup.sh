@@ -24,6 +24,8 @@ cp "$KIT"/example/soldier/audio.py "$P/audio.py"            # synth starting poi
 if [ "$STYLE" = blok ]; then
   cp "$KIT"/engine-blok/*.js "$KIT"/engine-blok/index.html "$KIT"/engine/motion.js "$P/web/"
   cp "$KIT"/example/pulau/story.js "$P/web/story.js"        # starting point: rewrite for the new story
+  cp "$KIT"/example/pulau/cues.js "$KIT"/example/pulau/subs.js "$P/web/"   # demo cues/subtitles; timing.py replaces them
+  cp "$KIT"/example/pulau/naskah.txt "$P/naskah-contoh.txt"
 else
   command -v git >/dev/null || echo "WARNING: git not found (needed once to fetch toon.ts)"
   mkdir -p "$P/web/lib"
